@@ -47,7 +47,7 @@ casper.reportErrors = function(f) {
 // Log in
 casper.start(entryUrl, function() {});
 // Read and parse the config file
-configFile = fs.read(path.resolve(__dirname, 'config.json');
+configFile = fs.read(path.resolve(__dirname, 'config.json'));
 casper.then(function() {
    this.reportErrors(function() {
       config = JSON.parse(configFile);
