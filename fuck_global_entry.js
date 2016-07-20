@@ -1,5 +1,6 @@
 var casper = require('casper').create(),
     fs = require('fs'),
+    path = require('path'),
     entryUrl = 'https://goes-app.cbp.dhs.gov/main/goes/', 
     preActionUrl = 'https://goes-app.cbp.dhs.gov/main/goes/HomePagePreAction.do',
     postActionUrl = 'https://goes-app.cbp.dhs.gov/main/goes/HomePagePostAction.do',
@@ -46,7 +47,7 @@ casper.reportErrors = function(f) {
 // Log in
 casper.start(entryUrl, function() {});
 // Read and parse the config file
-configFile = fs.read('./config.json');
+configFile = fs.read(path.resolve(__dirname, 'config.json');
 casper.then(function() {
    this.reportErrors(function() {
       config = JSON.parse(configFile);
