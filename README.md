@@ -1,3 +1,7 @@
+## NOTE
+
+This will only reschedule an existing appointment. If you have not manually scheduled an appointment yet, this will break.
+
 ## PREREQUISITES
 
 * Installed homebrew
