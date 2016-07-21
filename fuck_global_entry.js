@@ -1,12 +1,11 @@
 var casper = require('casper').create(),
     fs = require('fs'),
-    path = require('path'),
     entryUrl = 'https://goes-app.cbp.dhs.gov/main/goes/', 
     preActionUrl = 'https://goes-app.cbp.dhs.gov/main/goes/HomePagePreAction.do',
     postActionUrl = 'https://goes-app.cbp.dhs.gov/main/goes/HomePagePostAction.do',
     currentScheduleUrl = 'https://goes-app.cbp.dhs.gov/main/goes/CurrentSchedulePostAction.do',
     calendarUrl = 'https://goes-app.cbp.dhs.gov/main/goes/faces/internetScheduleCalendar.jsf',
-    formSelector = 'form[action$="/pkmslogin.form"]',
+    formSelector = 'form[action$="j_security_check"]',
     enterLinkSelector = 'a[href$="HomePagePreAction.do"]',
     manageApptSelector = 'input[name="manageAptm"]',
     rescheduleSelector = 'input[name="reschedule"]',
@@ -16,8 +15,12 @@ var casper = require('casper').create(),
     month,
     year,
     time,
-    config = {};
+    config = {},
+    verbose = false;
 
+if ('-v' in casper.cli.args || casper.cli.args == '-v') {
+   verbose = true;
+}
 /*
 console.log('args:');
 require("utils").dump(casper.cli.args);
@@ -30,6 +33,17 @@ var args = require("utils").dump(casper.cli.args),
     password = args[1];
 */
 
+var timeout = function() {
+   casper.echo('TIMEOUT');
+   casper.capture('timeout.png');
+   casper.exit(69);
+}
+
+var debug = function(msg) {
+   if (verbose) {
+      casper.echo(msg);
+   }
+}
 
 casper.reportErrors = function(f) {
    var ret = null;
@@ -37,17 +51,19 @@ casper.reportErrors = function(f) {
       ret = f.call(this);
    } catch (e) {
       this.capture('error.png');
-      this.echo("ERROR: " + e);
+      debug("ERROR: " + e);
       this.exit();
    }
    return ret;
 }
 
-
 // Log in
+console.log('starting');
 casper.start(entryUrl, function() {});
 // Read and parse the config file
-configFile = fs.read(path.resolve(__dirname, 'config.json'));
+console.log('started');
+//console.log('config file: ' + path.resolve(__dirname, 'config.json'));
+configFile = fs.read('./config.json');
 casper.then(function() {
    this.reportErrors(function() {
       config = JSON.parse(configFile);
@@ -55,51 +71,64 @@ casper.then(function() {
 })
 .then(function() {
    this.reportErrors(function() {
-      //this.echo('filling form');
+      debug('filling form');
       this.fill(formSelector, {
-         'username': config.username,
-         'password': config.password 
+         'j_username': config.username,
+         'j_password': config.password 
       }, true);
    });
 })
 .waitForSelector(enterLinkSelector, function() {
+   this.reportErrors(function() {
+   debug('enter link appeared');
    this.click(enterLinkSelector);
-   //this.echo('just clicked the enter link');
-})
-//.waitForUrl(preActionUrl, function() {
+   debug('just clicked the enter link');
+   });
+}, timeout)
 .waitForSelector(manageApptSelector, function() {
-   //this.echo('new navigation finished');
+   this.reportErrors(function() {
+   debug('new navigation finished');
    this.click(manageApptSelector);
-})
+   });
+}, timeout)
 .waitForSelector(rescheduleSelector, function() {
-   //this.echo('on reschedule page');
+   debug('on reschedule page');
    this.click(rescheduleSelector);
-})
+}, timeout)
 .waitForSelector(locationFormSelector, function() {
+   debug('filling enrollment center form');
    this.fill('form[name="ApplicationActionForm"]', {
       //'selectedEnrollmentCenter': '5446'
       'selectedEnrollmentCenter': 'San Francisco Global Entry Enrollment Center - San Francisco International Airport, San Francisco, CA 94128, US'
    }, true);
-})
+}, timeout)
 .then(function() {
-   this.getElementAttribute('.yearMonthHeader')
-   var monthYear = this.evaluate(function() {
-      return document.getElementsByClassName('yearMonthHeader')[0].children[1].innerHTML;
-   }).split(' ');
-   day = this.evaluate(function() {
-      return document.getElementsByClassName('currentDayCell')[0].children[0].children[0].innerHTML;
+   var header = this.evaluate(function() {
+      return document.getElementsByClassName('SectionHeader')[0].innerHTML;
    });
-   month = monthYear[0];
-   year = monthYear[1];
+   if (header == 'Appointments are Fully Booked') {
+      this.echo('The selected enrollment center is fully booked. Aborting');
+      this.exit(69);
+   } else {
+      debug('getting earliest appointment');
+      var monthYear = this.evaluate(function() {
+         return document.getElementsByClassName('yearMonthHeader')[0].children[1].innerHTML;
+      }).split(' ');
+      day = this.evaluate(function() {
+         return document.getElementsByClassName('currentDayCell')[0].children[0].children[0].innerHTML;
+      });
+      month = monthYear[0];
+      year = monthYear[1];
+   }
 })
 .then(function() {
    time = this.getElementInfo(availableDaySelector)['text'];
-   //this.echo('next appointment: ' + month + ' ' + day + ', ' + year + ' at ' + time);
+   debug('next appointment: ' + month + ' ' + day + ', ' + year + ' at ' + time);
    this.click(availableDaySelector);
 })
 .waitForSelector('form[name="ConfirmationForm"]', function() {
    this.reportErrors(function() {
-      //this.echo('request submitted');
+      debug('request submitted');
       var confirmationText = this.getElementInfo('.maincontainer')['text'];
       var lines = confirmationText.match(/[^\r\n]+/g);
       var origDateStr,
@@ -128,18 +157,18 @@ casper.then(function() {
       // Add date conflict logic here
       /*
       if (newDateStr == ' Jun 29, 2016' && newHour > 17) {
-         this.echo('not scheduling for tomorrow evening');
+         debug('not scheduling for tomorrow evening');
          this.exit();
       }
       if (newDateStr == ' Jun 30, 2016' && newHour > 16) {
-         this.echo('not scheduling over dodgeball');
+         debug('not scheduling over dodgeball');
          this.exit();
       }
       if (month == 'July' && day <= 5) {
          if (day == 1 && newHour > 16) {
-            this.echo('scheduling for friday before 4 pm');
+            debug('scheduling for friday before 4 pm');
          } else {
-            this.echo('not scheduling over the long weekend.');
+            debug('not scheduling over the long weekend.');
             this.exit();
          }
       }
