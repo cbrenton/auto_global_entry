@@ -9,8 +9,10 @@ var casper = require('casper').create(),
     enterLinkSelector = 'a[href$="HomePagePreAction.do"]',
     manageApptSelector = 'input[name="manageAptm"]',
     rescheduleSelector = 'input[name="reschedule"]',
+    checkboxSelector = '#checkMe',
     locationFormSelector = 'form[name="ApplicationActionForm"]',
-    availableDaySelector = 'a[onmouseup^="fireEntrySelected"]',
+    //availableDaySelector = 'a[onmouseup^="fireEntrySelected"]',
+    availableDaySelector = '.entry',
     day,
     month,
     year,
@@ -21,17 +23,6 @@ var casper = require('casper').create(),
 if ('-v' in casper.cli.args || casper.cli.args == '-v') {
    verbose = true;
 }
-/*
-console.log('args:');
-require("utils").dump(casper.cli.args);
-console.log('options:');
-require("utils").dump(casper.cli.options);
-*/
-/*
-var args = require("utils").dump(casper.cli.args),
-    username = args[0],
-    password = args[1];
-*/
 
 var timeout = function() {
    casper.echo('TIMEOUT');
@@ -78,6 +69,13 @@ casper.then(function() {
       }, true);
    });
 })
+.waitForSelector(checkboxSelector, function() {
+   this.reportErrors(function() {
+      this.click(checkboxSelector);
+      debug('clicked "are you human" box');
+   });
+}, timeout)
+/*
 .waitForSelector(enterLinkSelector, function() {
    this.reportErrors(function() {
    debug('enter link appeared');
@@ -85,6 +83,7 @@ casper.then(function() {
    debug('just clicked the enter link');
    });
 }, timeout)
+*/
 .waitForSelector(manageApptSelector, function() {
    this.reportErrors(function() {
    debug('new navigation finished');
@@ -114,6 +113,7 @@ casper.then(function() {
       var monthYear = this.evaluate(function() {
          return document.getElementsByClassName('yearMonthHeader')[0].children[1].innerHTML;
       }).split(' ');
+      debug(monthYear);
       day = this.evaluate(function() {
          return document.getElementsByClassName('currentDayCell')[0].children[0].children[0].innerHTML;
       });
@@ -143,6 +143,7 @@ casper.then(function() {
             origDateStr = lines[i].split(':')[1];
          }
          if (line.match(/^Original Interview Time/)) {
+            // @TODO: check for am/pm
             origTime = lines[i].split(':')[1];
             origHour = origTime.split(':')[0];
          }
