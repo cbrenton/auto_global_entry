@@ -5,7 +5,8 @@ This will only reschedule an existing appointment. If you have not manually sche
 ## PREREQUISITES
 
 * Installed homebrew
-* Installed casperjs and node via homebrew
+* Installed node via homebrew
+* Installed casper via `npm install -g casperjs`
 
 ## TO USE:
 
